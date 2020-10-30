@@ -1,4 +1,4 @@
-Pbrt-v4相关资源介绍：
+# PBRT-v4 related resources
 
 https://pharr.org/matt/blog/2020/08/19/pbrt-v4-released.html
 
@@ -10,13 +10,13 @@ https://www.youtube.com/watch?v=AXuk7bmhZ2g
 
  
 
-## 功能改进
-
- 可以连接tev图片浏览器实时预览渲染结果；
+## Imprvoments
+  - GPU based rendering (Optix 7.1 and Cuda 11)
+  - preview rendering process via Tev image viewer.
 
  
 
-## 代码结构
+## Code structure
 
 ![image-20200822002016771](C:/Users/gaoduan/AppData/Roaming/Typora/typora-user-images/image-20200822002016771.png)
 
@@ -29,27 +29,29 @@ Pbrt/
 ​    Camera.h(cpp)
 
 ​    … 
-  >  将所有材质collect到一个文件bsdf.cpp，所有camera也collect到一个文件camera.cpp
-
+  >  All material related codes are collected into a single file `bsdf.cpp`;
+  > All camera related codes are also collected into a single file `camera.cpp`;
+  > ...
 
 
 ​    Base/
 
 ![image-20200822002047537](C:/Users/gaoduan/AppData/Roaming/Typora/typora-user-images/image-20200822002047537.png)
 
-> 从虚函数转向动态 dispatch，也是实现GPU支持的支撑技术。
+> Virutal function ==> dynamic dispatch. This is the key techinique to support both GPU and CPU the same time.
 >
-> base 中有每个基本组件的基类的.h文件，例如shape、light、camera、material等，这些头文件主要完成两件事情：
+> In `base` folder, there are header files of base class of each component (e.g. shape, light, camera, material)
+> The role of these header files:
+> 1. Define their handle 
+>    e.g. shape.h define `shapeHandle`. All these handles are inherited from Tagged pointer which is implemented through C++ template programming and is the based of dynamic dispatch.
+>     
+>    We need to register all specific types in the statement of handle tyep.
+>    e.g. shapeHandle: public TaggedPointer<Triangle, Curve, Sphere, Cylinder, Disk>
+>         After defining the above handle, we can do dynamic dispatch.
 >
-> 1. 定义其handle类型
->
->    例如shape，定义shapehandle。这些handle继承自tagged pointer，tagged pointer是模板机制实现，给予动态dispatch的能力。
->
->    先不管具体的tagged pointer的实现问题，在声明handle的时候需要注册所有具体的类型，例如shapehandle : public TaggedPointer<Triangle, Curve, Sphere, Cylinder, Disk>，这样定义之后就有动态分派的能力了。
->
-> 2. 定义每个类的接口
->
->    例如shape，需要实现以下接口（和pbrt-v3的功能一致）：
+> 2. Define the interace of each class
+>   
+>    e.g. The sub-class of shape needs to implement the following interfaces (identical to PBRT-v3):
 >
 >    ![image-20200822004523584](C:/Users/gaoduan/AppData/Roaming/Typora/typora-user-images/image-20200822004523584.png)
 >
@@ -61,27 +63,87 @@ Pbrt/
 
 ​    Gpu/
 
-​    Util/ (底层的代码)
+​    Util/ (low-level codes)
 
 ![image-20200822002034966](C:/Users/gaoduan/AppData/Roaming/Typora/typora-user-images/image-20200822002034966.png)
 
-> 1. 包含vector、matrix等math相关的代码
-> 2. container等数据结构
+> 1. including math library (e.g. vector, matrix) 
+> 2. data structure (e.g. container)
 
 
 
- build 
+## Build 
 
-- need c++ 17, optix 7.1, cuda 11
-- need RTX 
+Dependencies:
+- Cuda 11 (nvidia driver > 450)
+- Optix 7.1
 
-​    
+Step by step:
 
-# 其他Optix path tracer相关的材料
+1. Install nvidia driver (ubuntu 20.04)
+
+```bash
+sudo add-apt-repository ppa:graphics-drivers/ppa
+sudo apt update
+sudo apt install ubuntu-drivers-common
+ubuntu-drivers devices
+sudo apt install nvidia-driver-450
+sudo reboot
+```
+
+
+
+2. Install CudaToolKit 11.0
+
+```bash
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
+sudo mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
+wget https://developer.download.nvidia.com/compute/cuda/11.0.3/local_installers/cuda-repo-ubuntu2004-11-0-local_11.0.3-450.51.06-1_amd64.deb
+sudo dpkg -i cuda-repo-ubuntu2004-11-0-local_11.0.3-450.51.06-1_amd64.deb
+sudo apt-key add /var/cuda-repo-ubuntu2004-11-0-local/7fa2af80.pub
+sudo apt-get update
+sudo apt-get -y install cuda
+
+```
+
+3. Install Optix-7.1
+
+```bash
+
+sudo apt install xorg-dev libglu1-mesa-dev
+
+# install gcc-4.8
+sudo gedit /etc/apt/sources.list
+# append `deb http://dk.archive.ubuntu.com/ubuntu/ xenial main
+# deb http://dk.archive.ubuntu.com/ubuntu/ xenial universe`
+sudo apt update && sudo apt install g++-4.8 gcc-4.8
+
+# Download Optix-7.1 from https://developer.nvidia.com/designworks/optix/download
+
+# build Optix
+cd SDK && mkdir build && cd build
+cmake -D CUDA_NVCC_FLAGS="-ccbin gcc-4.8" ..
+make
+
+```
+
+4. Build PBRT-v4
+
+```bash
+cd pbrt-v4 && mkdir build && cd build
+
+cmake -DPBRT_OPTIX7_PATH=~/Downloads/NVIDIA-OptiX-SDK-7.1.0-linux64-x86_64 ..
+
+make 
+
+sudo make install # install binary file into /usr/local/bin
+```
+
+
+# Other Optix path tracer related resources 
 
 -  https://github.com/knightcrawler25/Optix-PathTracer 
-
-- Optix 7.0 SDK中包含path tracer实现以及其他内容。
+-  PathTracer in the Optix 7.0 SDK
 -  https://developer.nvidia.com/blog/accelerated-ray-tracing-cuda/ 
 -  https://github.com/ingowald/RTOW-OptiX 
 -  https://developer.nvidia.com/blog/how-to-get-started-with-optix-7/ 
