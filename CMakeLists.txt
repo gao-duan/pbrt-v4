@@ -266,9 +266,10 @@ INCLUDE(CheckCXXCompilerFlag)
 
 # TODO: how to specify this on windows?
 check_cxx_compiler_flag ("-march=native" COMPILER_SUPPORTS_MARCH_NATIVE)
-if (COMPILER_SUPPORTS_MARCH_NATIVE AND PBRT_BUILD_NATIVE_EXECUTABLE)
-  list (APPEND PBRT_CXX_FLAGS -march=native)
-endif ()
+#if (COMPILER_SUPPORTS_MARCH_NATIVE AND PBRT_BUILD_NATIVE_EXECUTABLE)
+  #message(${PBRT_BUILD_NATIVE_EXECUTABLE})
+  #list (APPEND PBRT_CXX_FLAGS -march=native)
+#endif ()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
   list(APPEND PBRT_CXX_FLAGS -std=c++17)
