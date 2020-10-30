@@ -282,7 +282,9 @@ OptixTraversableHandle GPUAccel::createGASForTriangles(
 
                 plyMesh.ConvertToOnlyTriangles();
 
-                //Warning(&shape.loc, "%d %d %d", plyMesh.p.size(), plyMesh.n.size(), plyMesh.uv.size());
+                if(plyMesh.p.size() != plyMesh.uv.size()) {
+                    Warning(&shape.loc, "PLYMesh(%s), the number of vertices is not equal to the number of texcoords. #v: %d #vn: %d #vt: %d", filename, plyMesh.p.size(), plyMesh.n.size(), plyMesh.uv.size());
+                }
 
                 mesh = alloc.new_object<TriangleMesh>(
                     *shape.renderFromObject, shape.reverseOrientation, plyMesh.triIndices,
