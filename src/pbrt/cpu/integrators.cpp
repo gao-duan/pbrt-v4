@@ -668,9 +668,11 @@ STAT_INT_DISTRIBUTION("Integrator/Path length", pathLength);
 // PathIntegrator Method Definitions
 PathIntegrator::PathIntegrator(int maxDepth, CameraHandle camera, SamplerHandle sampler,
                                PrimitiveHandle aggregate, std::vector<LightHandle> lights,
-                               const std::string &lightSampleStrategy, bool regularize)
+                               const std::string &lightSampleStrategy,
+                               bool regularize, bool hideEmitter)
     : RayIntegrator(camera, sampler, aggregate, lights),
       maxDepth(maxDepth),
+      hideEmitter(hideEmitter),
       lightSampler(LightSamplerHandle::Create(lightSampleStrategy, lights, Allocator())),
       regularize(regularize) {}
 
@@ -693,8 +695,10 @@ SampledSpectrum PathIntegrator::Li(RayDifferential ray, SampledWavelengths &lamb
             // Incorporate emission from infinite lights for escaped ray
             for (const auto &light : infiniteLights) {
                 SampledSpectrum Le = light.Le(ray, lambda);
-                if (depth == 0 || specularBounce)
-                    L += SafeDiv(beta * Le, lambda.PDF());
+                if (depth == 0 || specularBounce) {
+                    if (!hideEmitter)
+                        L += SafeDiv(beta * Le, lambda.PDF());
+                }
                 else {
                     // Compute MIS weight for infinite light
                     Float lightPDF =
@@ -711,8 +715,10 @@ SampledSpectrum PathIntegrator::Li(RayDifferential ray, SampledWavelengths &lamb
         // Incorporate emission from emissive surface hit by ray
         SampledSpectrum Le = si->intr.Le(-ray.d, lambda);
         if (Le) {
-            if (depth == 0 || specularBounce)
-                L += SafeDiv(beta * Le, lambda.PDF());
+            if (depth == 0 || specularBounce) {
+                if (!hideEmitter)
+                    L += SafeDiv(beta * Le, lambda.PDF());
+            }
             else {
                 // Compute MIS weight for area light
                 LightHandle areaLight(si->intr.areaLight);
@@ -857,10 +863,13 @@ std::unique_ptr<PathIntegrator> PathIntegrator::Create(
     const ParameterDictionary &parameters, CameraHandle camera, SamplerHandle sampler,
     PrimitiveHandle aggregate, std::vector<LightHandle> lights, const FileLoc *loc) {
     int maxDepth = parameters.GetOneInt("maxdepth", 5);
+    bool hideEmitter = parameters.GetOneBool("hideEmitter", false);
+    LOG_VERBOSE("PathIntegrator: maxDepth: %d, hideEmitter: %d", maxDepth, hideEmitter);
+    
     std::string lightStrategy = parameters.GetOneString("lightsampler", "bvh");
     bool regularize = parameters.GetOneBool("regularize", false);
     return std::make_unique<PathIntegrator>(maxDepth, camera, sampler, aggregate, lights,
-                                            lightStrategy, regularize);
+                                            lightStrategy, regularize, hideEmitter);
 }
 
 // SimpleVolPathIntegrator Method Definitions
@@ -3316,6 +3325,7 @@ std::unique_ptr<Integrator> Integrator::Create(
     SamplerHandle sampler, PrimitiveHandle aggregate, std::vector<LightHandle> lights,
     const RGBColorSpace *colorSpace, const FileLoc *loc) {
     std::unique_ptr<Integrator> integrator;
+
     if (name == "path")
         integrator =
             PathIntegrator::Create(parameters, camera, sampler, aggregate, lights, loc);

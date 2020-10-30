@@ -828,7 +828,7 @@ SpectrumTextureHandle TextureParameterDictionary::GetSpectrumTextureOrNull(
 
             RGB rgb(p->numbers[0], p->numbers[1], p->numbers[2]);
             if (rgb.r < 0 || rgb.g < 0 || rgb.b < 0)
-                ErrorExit(&p->loc,
+                Warning(&p->loc,
                           "Negative value provided for \"rgb\" parameter \"%s\".",
                           p->name);
             SpectrumHandle s;

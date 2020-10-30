@@ -76,6 +76,7 @@ class GPUPathIntegrator {
     LightSamplerHandle lightSampler;
 
     int maxDepth;
+    bool hideEmitter;
     bool regularize;
     int maxQueueSize, scanlinesPerPass;
 
@@ -115,6 +116,7 @@ class GPUPathIntegrator {
         // Note: not atomics: tid 0 always updates them for everyone...
         uint64_t cameraRays = 0;
         pstd::vector<uint64_t> indirectRays, shadowRays;
+        Bounds3f world_bounds;
     };
     Stats *stats;
 };

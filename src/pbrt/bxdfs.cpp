@@ -88,7 +88,7 @@ SampledSpectrum DielectricInterfaceBxDF::f(Vector3f wo, Vector3f wi,
             return SampledSpectrum(0.);
         wh = Normalize(wh);
         Float F = FrDielectric(Dot(wi, FaceForward(wh, Vector3f(0, 0, 1))), eta);
-        return SampledSpectrum(mfDistrib.D(wh) * mfDistrib.G(wo, wi) * F /
+        return specular_reflection * SampledSpectrum(mfDistrib.D(wh) * mfDistrib.G(wo, wi) * F /
                                (4 * cosTheta_i * cosTheta_o));
 
     } else {
@@ -112,7 +112,7 @@ SampledSpectrum DielectricInterfaceBxDF::f(Vector3f wo, Vector3f wi,
         Float F = FrDielectric(Dot(wo, wh), eta);
         Float sqrtDenom = Dot(wo, wh) + etap * Dot(wi, wh);
         Float factor = (mode == TransportMode::Radiance) ? Sqr(1 / etap) : 1;
-        return SampledSpectrum((1 - F) * factor *
+        return specular_transmittance * SampledSpectrum((1 - F) * factor *
                                std::abs(mfDistrib.D(wh) * mfDistrib.G(wo, wi) *
                                         AbsDot(wi, wh) * AbsDot(wo, wh) /
                                         (cosTheta_i * cosTheta_o * Sqr(sqrtDenom))));
@@ -138,7 +138,7 @@ pstd::optional<BSDFSample> DielectricInterfaceBxDF::Sample_f(
             // Sample perfect specular reflection at interface
             Vector3f wi(-wo.x, -wo.y, wo.z);
             SampledSpectrum fr(R / AbsCosTheta(wi));
-            return BSDFSample(fr, wi, pr / (pr + pt), BxDFFlags::SpecularReflection);
+            return BSDFSample(fr * specular_reflection, wi, pr / (pr + pt), BxDFFlags::SpecularReflection);
 
         } else {
             // Sample perfect specular transmission at interface
@@ -158,7 +158,7 @@ pstd::optional<BSDFSample> DielectricInterfaceBxDF::Sample_f(
             if (mode == TransportMode::Radiance)
                 ft /= Sqr(etap);
 
-            return BSDFSample(ft, wi, pt / (pr + pt), BxDFFlags::SpecularTransmission);
+            return BSDFSample(ft * specular_transmittance, wi, pt / (pr + pt), BxDFFlags::SpecularTransmission);
         }
 
     } else {
@@ -194,7 +194,7 @@ pstd::optional<BSDFSample> DielectricInterfaceBxDF::Sample_f(
                 return {};
             SampledSpectrum f(mfDistrib.D(wh) * mfDistrib.G(wo, wi) * F /
                               (4 * cosTheta_i * cosTheta_o));
-            return BSDFSample(f, wi, pdf, BxDFFlags::GlossyReflection);
+            return BSDFSample(f * specular_reflection, wi, pdf, BxDFFlags::GlossyReflection);
 
         } else {
             // Sample transmission at non-delta dielectric interface
@@ -224,7 +224,7 @@ pstd::optional<BSDFSample> DielectricInterfaceBxDF::Sample_f(
             Float pdf = mfDistrib.PDF(wo, wh) * dwh_dwi * pt / (pr + pt);
             CHECK(!IsNaN(pdf));
 
-            return BSDFSample(f, wi, pdf, BxDFFlags::GlossyTransmission);
+            return BSDFSample(f * specular_transmittance, wi, pdf, BxDFFlags::GlossyTransmission);
         }
     }
 }

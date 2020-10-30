@@ -18,10 +18,11 @@ namespace pbrt {
 class VisibleSurface;
 class RGBFilm;
 class GBufferFilm;
+class GBufferMitsubaFilm;
 class PixelSensor;
 
 // FilmHandle Definition
-class FilmHandle : public TaggedPointer<RGBFilm, GBufferFilm> {
+class FilmHandle : public TaggedPointer<RGBFilm, GBufferFilm, GBufferMitsubaFilm> {
   public:
     // Film Interface
     PBRT_CPU_GPU inline SampledWavelengths SampleWavelengths(Float u) const;

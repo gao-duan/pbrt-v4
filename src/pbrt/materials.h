@@ -123,14 +123,18 @@ class DielectricMaterial {
     // DielectricMaterial Public Methods
     DielectricMaterial(FloatTextureHandle uRoughness, FloatTextureHandle vRoughness,
                        FloatTextureHandle etaF, SpectrumTextureHandle etaS,
-                       FloatTextureHandle displacement, bool remapRoughness)
+                       FloatTextureHandle displacement, bool remapRoughness, 
+                       SpectrumTextureHandle R=nullptr, SpectrumTextureHandle T=nullptr)
         : displacement(displacement),
           uRoughness(uRoughness),
           vRoughness(vRoughness),
           etaF(etaF),
           etaS(etaS),
-          remapRoughness(remapRoughness) {
+          remapRoughness(remapRoughness),
+          R(R),
+          T(T) {
         CHECK((bool)etaF ^ (bool)etaS);
+
     }
 
     static const char *Name() { return "DielectricMaterial"; }
@@ -176,8 +180,12 @@ class DielectricMaterial {
         }
         TrowbridgeReitzDistribution distrib(urough, vrough);
 
+        SampledSpectrum r(1.0f), t(1.0f);
+        if (R) r= texEval(R, ctx, lambda);
+        if (T) t = texEval(T, ctx, lambda);
+
         // Return BSDF for dielectric material
-        *bxdf = DielectricInterfaceBxDF(eta, distrib);
+        *bxdf = DielectricInterfaceBxDF(eta, distrib, r, t);
         return BSDF(ctx.wo, ctx.n, ctx.ns, ctx.dpdus, bxdf, eta);
     }
 
@@ -186,8 +194,135 @@ class DielectricMaterial {
     FloatTextureHandle displacement;
     FloatTextureHandle uRoughness, vRoughness, etaF;
     SpectrumTextureHandle etaS;
+    SpectrumTextureHandle R, T;
     bool remapRoughness;
 };
+
+
+
+
+
+
+// SpecularTransmissionMaterial Definition
+class SpecularTransmissionMaterial {
+  public:
+    using BxDF = SpecularTransmissionBxDF;
+    using BSSRDF = void;
+    // SpecularTransmissionMaterial Public Methods
+    SpecularTransmissionMaterial(FloatTextureHandle etaF, SpectrumTextureHandle etaS,SpectrumTextureHandle T)
+        : etaF(etaF),
+          etaS(etaS),
+          T(T) {
+        CHECK((bool)etaF ^ (bool)etaS);
+    }
+
+    static const char *Name() { return "SpecularTransmissionMaterial"; }
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU bool CanEvaluateTextures(TextureEvaluator texEval) const {
+        return texEval.CanEvaluate({etaF}, {etaS, T});
+    }
+
+    PBRT_CPU_GPU
+    FloatTextureHandle GetDisplacement() const { return nullptr; }
+
+    static SpecularTransmissionMaterial *Create(const TextureParameterDictionary &parameters,
+                                      const FileLoc *loc, Allocator alloc) ;
+    std::string ToString() const ;
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU void GetBSSRDF(TextureEvaluator texEval, MaterialEvalContext ctx,
+                                SampledWavelengths &lambda, void *) const {}
+
+    PBRT_CPU_GPU bool IsTransparent() const { return false; }
+    PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU BSDF GetBSDF(TextureEvaluator texEval, MaterialEvalContext ctx,
+                              SampledWavelengths &lambda,
+                              SpecularTransmissionBxDF *bxdf) const {
+        // Compute index of refraction for dielectric material
+        Float eta;
+        if (etaF)
+            eta = texEval(etaF, ctx);
+        else {
+            eta = texEval(etaS, ctx, lambda)[0];
+            lambda.TerminateSecondary();
+        }
+        SampledSpectrum t = Clamp(texEval(T, ctx, lambda), 0, 1);
+
+        // Return BSDF for \use{SpecularTransmissionMaterial}
+        *bxdf = SpecularTransmissionBxDF(eta, t);
+        return BSDF(ctx.wo, ctx.n, ctx.ns, ctx.dpdus, bxdf, eta);
+    }
+
+  private:
+    // SpecularTransmissionMaterial Private Members
+    FloatTextureHandle etaF;
+    SpectrumTextureHandle etaS;
+    SpectrumTextureHandle T;
+};
+
+
+// SpecularReflectionMaterial Definition
+class SpecularReflectionMaterial {
+  public:
+    using BxDF = SpecularReflectionBxDF;
+    using BSSRDF = void;
+    // SpecularReflectionMaterial Public Methods
+    SpecularReflectionMaterial(FloatTextureHandle etaF, SpectrumTextureHandle etaS,SpectrumTextureHandle R)
+        : etaF(etaF), 
+          etaS(etaS),
+          R(R) {
+        CHECK((bool)etaF ^ (bool)etaS);
+    }
+
+    static const char *Name() { return "SpecularReflectionMaterial"; }
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU bool CanEvaluateTextures(TextureEvaluator texEval) const {
+        return texEval.CanEvaluate({etaF}, {etaS, R});
+    }
+
+    PBRT_CPU_GPU
+    FloatTextureHandle GetDisplacement() const { return nullptr; }
+
+    static SpecularReflectionMaterial *Create(const TextureParameterDictionary &parameters,
+                                      const FileLoc *loc, Allocator alloc) ;
+    std::string ToString() const ;
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU void GetBSSRDF(TextureEvaluator texEval, MaterialEvalContext ctx,
+                                SampledWavelengths &lambda, void *) const {}
+
+    PBRT_CPU_GPU bool IsTransparent() const { return false; }
+    PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU BSDF GetBSDF(TextureEvaluator texEval, MaterialEvalContext ctx,
+                              SampledWavelengths &lambda,
+                              SpecularReflectionBxDF *bxdf) const {
+        Float eta;
+        if (etaF)
+            eta = texEval(etaF, ctx);
+        else {
+            eta = texEval(etaS, ctx, lambda)[0];
+            lambda.TerminateSecondary();
+        }
+        SampledSpectrum r = Clamp(texEval(R, ctx, lambda), 0, 1);
+
+        *bxdf = SpecularReflectionBxDF(eta, r);
+        return BSDF(ctx.wo, ctx.n, ctx.ns, ctx.dpdus, bxdf, eta);
+    }
+
+  private:
+    // SpecularReflectionMaterial Private Members
+    FloatTextureHandle etaF;
+    SpectrumTextureHandle etaS;
+    SpectrumTextureHandle R;
+};
+
+
 
 // ThinDielectricMaterial Definition
 class ThinDielectricMaterial {
@@ -334,6 +469,7 @@ class MixMaterial {
     MaterialHandle materials[2];
 };
 
+
 // HairMaterial Definition
 class HairMaterial {
   public:
@@ -434,7 +570,7 @@ class DiffuseMaterial {
 
     PBRT_CPU_GPU bool IsTransparent() const { return false; }
     PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
-
+    
     std::string ToString() const;
 
     DiffuseMaterial(SpectrumTextureHandle reflectance, FloatTextureHandle sigma,
@@ -461,6 +597,10 @@ class DiffuseMaterial {
     SpectrumTextureHandle reflectance;
     FloatTextureHandle sigma;
 };
+
+
+
+
 
 // ConductorMaterial Definition
 class ConductorMaterial {
@@ -537,7 +677,7 @@ class CoatedDiffuseMaterial {
                           FloatTextureHandle thickness, SpectrumTextureHandle albedo,
                           FloatTextureHandle g, FloatTextureHandle eta,
                           FloatTextureHandle displacement, bool remapRoughness,
-                          LayeredBxDFConfig config)
+                          LayeredBxDFConfig config, SpectrumTextureHandle specular_reflectance=nullptr)
         : displacement(displacement),
           reflectance(reflectance),
           uRoughness(uRoughness),
@@ -547,7 +687,8 @@ class CoatedDiffuseMaterial {
           g(g),
           eta(eta),
           remapRoughness(remapRoughness),
-          config(config) {}
+          config(config),
+          specular_reflectance(specular_reflectance) {}
 
     static const char *Name() { return "CoatedDiffuseMaterial"; }
 
@@ -577,7 +718,9 @@ class CoatedDiffuseMaterial {
         SampledSpectrum a = Clamp(texEval(albedo, ctx, lambda), 0, 1);
         Float gg = Clamp(texEval(g, ctx), -1, 1);
 
-        *bxdf = CoatedDiffuseBxDF(DielectricInterfaceBxDF(e, distrib),
+        SampledSpectrum ks = Clamp(texEval(specular_reflectance, ctx, lambda), 0, 1);
+        
+        *bxdf = CoatedDiffuseBxDF(DielectricInterfaceBxDF(e, distrib, ks),
                                   IdealDiffuseBxDF(r), thick, a, gg, config);
         return BSDF(ctx.wo, ctx.n, ctx.ns, ctx.dpdus, bxdf);
     }
@@ -604,6 +747,8 @@ class CoatedDiffuseMaterial {
     FloatTextureHandle uRoughness, vRoughness, thickness, g, eta;
     bool remapRoughness;
     LayeredBxDFConfig config;
+
+    SpectrumTextureHandle specular_reflectance;
 };
 
 // CoatedConductorMaterial Definition

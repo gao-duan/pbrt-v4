@@ -1239,6 +1239,19 @@ std::string FormattingScene::upgradeMaterial(std::string *name, ParameterDiction
         return matches;
     };
 
+     auto removeParamIfConstant = [&](const char *paramName, Float value) {
+        pstd::optional<RGB> rgb = dict->GetOneRGB(paramName);
+        bool matches = (rgb && rgb->r == value && rgb->g == value && rgb->b == value);
+
+        if(matches) {
+            dict->RemoveSpectrum(paramName);
+            dict->RemoveTexture(paramName);
+        }
+
+        return matches;
+    };
+
+
     if (*name == "uber") {
         *name = "coateddiffuse";
         if (removeParamSilentIfConstant("Ks", 0)) {
@@ -1306,15 +1319,15 @@ std::string FormattingScene::upgradeMaterial(std::string *name, ParameterDiction
             indent(1) + StringPrintf("\"string materials\" [ \"%s\" \"%s\" ]\n", m2, m1);
     } else if (*name == "substrate") {
         *name = "coateddiffuse";
-        removeParamSilentIfConstant("Ks", 1);
+        //removeParamSilentIfConstant("Ks", 1);
         dict->RenameParameter("Kd", "reflectance");
     } else if (*name == "glass") {
         *name = "dielectric";
-        removeParamSilentIfConstant("Kr", 1);
-        removeParamSilentIfConstant("Kt", 1);
+        //removeParamSilentIfConstant("Kr", 1);
+        //removeParamSilentIfConstant("Kt", 1);
     } else if (*name == "plastic") {
         *name = "coateddiffuse";
-        if (removeParamSilentIfConstant("Ks", 0)) {
+        if (removeParamIfConstant("Ks", 0)) {
             *name = "diffuse";
             dict->RemoveFloat("roughness");
             dict->RemoveFloat("eta");

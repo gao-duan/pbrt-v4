@@ -442,7 +442,7 @@ using MaterialEvalQueue =
     MultiWorkQueue<MaterialEvalWorkItem, CoatedDiffuseMaterial, CoatedConductorMaterial,
                    ConductorMaterial, DielectricMaterial, DiffuseMaterial,
                    DiffuseTransmissionMaterial, HairMaterial, MeasuredMaterial,
-                   SubsurfaceMaterial, ThinDielectricMaterial, MixMaterial>;
+                   SubsurfaceMaterial, ThinDielectricMaterial, MixMaterial, SpecularTransmissionMaterial>;
 
 }  // namespace pbrt
 

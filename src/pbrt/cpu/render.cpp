@@ -347,6 +347,12 @@ void CPURender(ParsedScene &parsedScene) {
                 "other than R, G, B will be zero.",
                 parsedScene.integrator.name);
 
+    if (parsedScene.film.name == "gbuffer_mitsuba" && parsedScene.integrator.name != "path")
+        Warning(&parsedScene.film.loc,
+                "GBufferMitsubaFilm is not supported by %s. The channels "
+                "other than R, G, B will be zero.",
+                parsedScene.integrator.name);
+
     if (haveSubsurface && parsedScene.integrator.name != "volpath")
         Warning("Some objects in the scene have subsurface scattering, which is "
                 "not supported by the %s integrator. Use the \"volpath\" integrator "
@@ -359,6 +365,8 @@ void CPURender(ParsedScene &parsedScene) {
     integrator->Render();
 
     LOG_VERBOSE("Memory used after rendering: %s", GetCurrentRSS());
+
+    printf("  Bounding box of scene: %s\n", integrator->SceneBounds().ToString().c_str());
 
     PtexTextureBase::ReportStats();
     ImageTextureBase::ClearCache();

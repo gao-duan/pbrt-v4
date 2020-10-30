@@ -143,6 +143,8 @@ class VisibleSurface {
     bool set = false;
     Point3f p;
     Normal3f n, ns;
+    Normal3f _n, _ns;
+    Point2f texcoords;
     Float time = 0;
     Float dzdx = 0, dzdy = 0;
     SampledSpectrum albedo;
@@ -386,6 +388,91 @@ class GBufferFilm : public FilmBase {
     bool writeFP16;
     Float filterIntegral;
     SquareMatrix<3> outputRGBFromSensorRGB;
+};
+
+
+
+
+// GBufferMitsubaFilm Definition
+class GBufferMitsubaFilm : public FilmBase {
+  public:
+    // GBufferMitsubaFilm Public Methods
+    GBufferMitsubaFilm(FilmBaseParameters p, const RGBColorSpace *colorSpace, const std::vector<std::string>& fields,
+                Float maxComponentValue = Infinity, bool writeFP16 = true,
+                Allocator alloc = {});
+
+    static GBufferMitsubaFilm *Create(const ParameterDictionary &parameters, Float exposureTime,
+                               FilterHandle filter, const RGBColorSpace *colorSpace,
+                               const FileLoc *loc, Allocator alloc);
+
+    PBRT_CPU_GPU
+    SampledWavelengths SampleWavelengths(Float u) const;
+
+    PBRT_CPU_GPU
+    void AddSample(const Point2i &pFilm, SampledSpectrum L,
+                   const SampledWavelengths &lambda, const VisibleSurface *visibleSurface,
+                   Float weight);
+
+    PBRT_CPU_GPU
+    void AddSplat(const Point2f &p, SampledSpectrum v, const SampledWavelengths &lambda);
+
+    PBRT_CPU_GPU
+    RGB ToOutputRGB(const SampledSpectrum &L, const SampledWavelengths &lambda) const {
+        RGB cameraRGB = sensor->ToSensorRGB(L * sensor->ImagingRatio(), lambda);
+        return outputRGBFromSensorRGB * cameraRGB;
+    }
+
+    PBRT_CPU_GPU
+    bool UsesVisibleSurface() const { return true; }
+
+    PBRT_CPU_GPU
+    RGB GetPixelRGB(const Point2i &p, Float splatScale = 1) const {
+        const Pixel &pixel = pixels[p];
+        RGB rgb(pixel.rgbSum[0], pixel.rgbSum[1], pixel.rgbSum[2]);
+
+        // Normalize pixel with weight sum
+        Float weightSum = pixel.weightSum;
+        if (weightSum != 0)
+            rgb /= weightSum;
+
+        // Add splat value at pixel
+        for (int c = 0; c < 3; ++c)
+            rgb[c] += splatScale * pixel.splatRGB[c] / filterIntegral;
+
+        rgb = outputRGBFromSensorRGB * rgb;
+
+        return rgb;
+    }
+
+    void WriteImage(ImageMetadata metadata, Float splatScale = 1);
+    Image GetImage(ImageMetadata *metadata, Float splatScale = 1);
+
+    std::string ToString() const;
+
+  private:
+    // GBufferMitsubaFilm::Pixel Definition
+    struct Pixel {
+        Pixel() = default;
+        double rgbSum[3] = {0., 0., 0.};
+        double weightSum = 0.;
+        AtomicDouble splatRGB[3];
+        Point3f pSum;
+        Float dzdxSum = 0, dzdySum = 0;
+        Normal3f nSum, nsSum;
+        Point2f uvSum;
+        double albedoSum[3] = {0., 0., 0.};
+        VarianceEstimator<Float> varianceEstimator[3];
+    };
+
+    // GBufferMitsubaFilm Private Members
+    Array2D<Pixel> pixels;
+    const RGBColorSpace *colorSpace;
+    Float maxComponentValue;
+    bool writeFP16;
+    Float filterIntegral;
+    SquareMatrix<3> outputRGBFromSensorRGB;
+
+    std::vector<std::string> fields;
 };
 
 PBRT_CPU_GPU

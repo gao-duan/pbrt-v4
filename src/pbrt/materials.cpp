@@ -57,8 +57,16 @@ DielectricMaterial *DielectricMaterial::Create(
     FloatTextureHandle displacement =
         parameters.GetFloatTextureOrNull("displacement", alloc);
     bool remapRoughness = parameters.GetOneBool("remaproughness", true);
+
+    SpectrumTextureHandle R =
+        parameters.GetSpectrumTextureOrNull("Kr", SpectrumType::General, alloc);
+
+    SpectrumTextureHandle T =
+        parameters.GetSpectrumTextureOrNull("Kt", SpectrumType::General, alloc);
+
+
     return alloc.new_object<DielectricMaterial>(uRoughness, vRoughness, etaF, etaS,
-                                                displacement, remapRoughness);
+                                                displacement, remapRoughness, R, T);
 }
 
 // ThinDielectricMaterial Method Definitions
@@ -259,12 +267,18 @@ CoatedDiffuseMaterial *CoatedDiffuseMaterial::Create(
         albedo = alloc.new_object<SpectrumConstantTexture>(
             alloc.new_object<ConstantSpectrum>(0.f));
 
+    SpectrumTextureHandle specular_reflectance =
+        parameters.GetSpectrumTexture("Ks", nullptr, SpectrumType::General, alloc);
+    if(!specular_reflectance) 
+        specular_reflectance = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<ConstantSpectrum>(1.0f));
+
     FloatTextureHandle displacement =
         parameters.GetFloatTextureOrNull("displacement", alloc);
     bool remapRoughness = parameters.GetOneBool("remaproughness", true);
     return alloc.new_object<CoatedDiffuseMaterial>(reflectance, uRoughness, vRoughness,
                                                    thickness, albedo, g, eta,
-                                                   displacement, remapRoughness, config);
+                                                   displacement, remapRoughness, config, specular_reflectance);
 }
 
 std::string CoatedConductorMaterial::ToString() const {
@@ -434,6 +448,30 @@ DiffuseTransmissionMaterial *DiffuseTransmissionMaterial::Create(
                                                          sigma, displacement, scale);
 }
 
+
+
+// SpecularTransmissionMaterial Method Definitions
+std::string SpecularTransmissionMaterial::ToString() const {
+     return StringPrintf("[ SpecularTransmissionMaterial T:%s ]", T);
+}
+
+SpecularTransmissionMaterial *SpecularTransmissionMaterial::Create(
+    const TextureParameterDictionary &parameters, const FileLoc *loc, Allocator alloc) {
+        SpectrumTextureHandle t = parameters.GetSpectrumTexture(
+            "Transmission", nullptr, SpectrumType::General, alloc);
+        if(!t) {
+            t = alloc.new_object<SpectrumConstantTexture>(alloc.new_object<ConstantSpectrum>(1.0f));
+        }
+
+        FloatTextureHandle _etaF  = parameters.GetFloatTextureOrNull("eta", alloc);
+        SpectrumTextureHandle _etaS  = parameters.GetSpectrumTextureOrNull("eta", SpectrumType::General, alloc);
+
+
+        return alloc.new_object<SpecularTransmissionMaterial>(_etaF, _etaS, t);
+    }
+
+
+
 MeasuredMaterial::MeasuredMaterial(const std::string &filename,
                                    FloatTextureHandle displacement, Allocator alloc)
     : displacement(displacement) {
@@ -483,6 +521,8 @@ MaterialHandle MaterialHandle::Create(
         material = DiffuseTransmissionMaterial::Create(parameters, loc, alloc);
     else if (name == "dielectric")
         material = DielectricMaterial::Create(parameters, loc, alloc);
+    else if (name == "specular_transmission") 
+        material = SpecularTransmissionMaterial::Create(parameters, loc, alloc);
     else if (name == "thindielectric")
         material = ThinDielectricMaterial::Create(parameters, loc, alloc);
     else if (name == "hair")

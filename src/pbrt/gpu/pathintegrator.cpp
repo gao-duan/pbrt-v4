@@ -182,6 +182,8 @@ GPUPathIntegrator::GPUPathIntegrator(Allocator alloc, const ParsedScene &scene) 
     // Integrator parameters
     regularize = scene.integrator.parameters.GetOneBool("regularize", false);
     maxDepth = scene.integrator.parameters.GetOneInt("maxdepth", 5);
+    hideEmitter = scene.integrator.parameters.GetOneBool("hideEmitter", false);
+    LOG_VERBOSE("GPUIntegrator  maxDepth: %d hideEmitter: %d\n", maxDepth, hideEmitter);
 
     ///////////////////////////////////////////////////////////////////////////
     // Allocate storage for all of the queues/buffers...
@@ -237,9 +239,31 @@ GPUPathIntegrator::GPUPathIntegrator(Allocator alloc, const ParsedScene &scene) 
 
     stats = alloc.new_object<Stats>(maxDepth, alloc);
 
+    Bounds3f world_bounds;
+   
+    for (const auto &shape : scene.shapes) {
+        pstd::vector<ShapeHandle> shapeHandles = ShapeHandle::Create(
+            shape.name, shape.renderFromObject, shape.objectFromRender,
+            shape.reverseOrientation, shape.parameters, &shape.loc, alloc);
+            
+        if(!shape.renderFromObject->IsIdentity()) {
+            LOG_VERBOSE("%s:  %s\n", shape.name, shape.renderFromObject->ToString());
+        }
+        for(auto sh : shapeHandles) {
+            Bounds3f _tmp = shape.objectFromRender->operator()(sh.Bounds());
+            world_bounds = Union( _tmp, world_bounds);
+        }
+    }
+ 
+    stats->world_bounds = world_bounds;
+
     size_t endSize = mr->BytesAllocated();
     pathIntegratorBytes += endSize - startSize;
 }
+
+
+
+
 
 void GPUPathIntegrator::TraceShadowRays(int depth) {
     if (haveMedia)
@@ -492,7 +516,8 @@ void GPUPathIntegrator::HandleEscapedRays(int depth) {
                          er.pdfNEE[0], er.pdfNEE[1], er.pdfNEE[2], er.pdfNEE[3]);
 
                      if (depth == 0 || er.specularBounce) {
-                         L = er.beta * Le / er.pdfUni.Average();
+                         if(!hideEmitter)
+                            L = er.beta * Le / er.pdfUni.Average();
                      } else {
                          Float time = 0;  // FIXME
                          LightSampleContext ctx(er.piPrev, er.nPrev, er.nsPrev);
@@ -533,7 +558,8 @@ void GPUPathIntegrator::HandleRayFoundEmission(int depth) {
             SampledSpectrum L(0.f);
 
             if (depth == 0 || he.isSpecularBounce) {
-                L = he.beta * Le / he.pdfUni.Average();
+                if(!hideEmitter)
+                    L = he.beta * Le / he.pdfUni.Average();
             } else {
                 Vector3f wi = he.rayd;
 
@@ -649,6 +675,8 @@ std::string GPUPathIntegrator::Stats::Print() const {
     for (int i = 0; i < shadowRays.size(); ++i)
         s += StringPrintf("    %-42s               %12" PRIu64 "\n",
                           StringPrintf("Shadow rays, depth %-3d", i), shadowRays[i]);
+    s += StringPrintf("    %-42s              " "\n",
+                          StringPrintf("Bounding box: %s", world_bounds.ToString().c_str()));
     return s;
 }
 
