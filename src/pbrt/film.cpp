@@ -951,7 +951,7 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
             channels.push_back("dzdx");
             channels.push_back("dzdy");   
         }
-        else if(field == "uv") {
+        else if(field == "UV") {
             channels.push_back("UV.R");
             channels.push_back("UV.G");
             channels.push_back("UV.B");
@@ -1041,8 +1041,8 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
             else if(field == "gradient") {
                 image.SetChannels(pOffset, dzDesc, {std::abs(dzdx), std::abs(dzdy)});
             }
-            else if (field == "uv") {
-                 image.SetChannels(pOffset, nDesc, {uv.x, uv.y, 0.0});
+            else if (field == "UV") {
+                 image.SetChannels(pOffset, uvDesc, {uv.x, uv.y, 0.0});
             }
             else {
                 std::cout<<"Unknown field [" << field << ", ignored" <<std::endl;
@@ -1074,10 +1074,11 @@ GBufferMitsubaFilm *GBufferMitsubaFilm::Create(const ParameterDictionary &parame
     bool writeFP16 = parameters.GetOneBool("savefp16", true);
     std::vector<std::string> fields = parameters.GetStringArray("field");
     if(fields.empty()) {
-        fields.push_back("RGB");
+        fields.push_back("Image");
         fields.push_back("Albedo");
         fields.push_back("shNormal");
         fields.push_back("Position");
+        fields.push_back("UV");
     }
 
     PixelSensor *sensor =

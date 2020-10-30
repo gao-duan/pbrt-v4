@@ -87,6 +87,7 @@ void GPUPathIntegrator::EvaluateMaterialAndBSDF(TextureEvaluator texEval,
                 intr.n = me.n;
                 intr.shading.n = ns;
                 intr.wo = me.wo;
+                intr.uv = me.uv;
                 // TODO: intr.time
 
                 // Estimate BSDF's albedo

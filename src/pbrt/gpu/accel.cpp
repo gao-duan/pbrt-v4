@@ -282,6 +282,8 @@ OptixTraversableHandle GPUAccel::createGASForTriangles(
 
                 plyMesh.ConvertToOnlyTriangles();
 
+                //Warning(&shape.loc, "%d %d %d", plyMesh.p.size(), plyMesh.n.size(), plyMesh.uv.size());
+
                 mesh = alloc.new_object<TriangleMesh>(
                     *shape.renderFromObject, shape.reverseOrientation, plyMesh.triIndices,
                     plyMesh.p, std::vector<Vector3f>(), plyMesh.n, plyMesh.uv,
