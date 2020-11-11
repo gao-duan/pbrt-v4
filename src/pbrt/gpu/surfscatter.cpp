@@ -91,30 +91,30 @@ void GPUPathIntegrator::EvaluateMaterialAndBSDF(TextureEvaluator texEval,
                 // TODO: intr.time
 
                 // Estimate BSDF's albedo
-                // constexpr int nRhoSamples = 16;
-                // SampledSpectrum rho(0.f);
-                // for (int i = 0; i < nRhoSamples; ++i) {
-                //     // Generate sample for hemispherical-directional reflectance
-                //     Float uc = RadicalInverse(0, i + 1);
-                //     Point2f u(RadicalInverse(1, i + 1), RadicalInverse(2, i + 1));
+                constexpr int nRhoSamples = 16;
+                SampledSpectrum rho(0.f);
+                for (int i = 0; i < nRhoSamples; ++i) {
+                    // Generate sample for hemispherical-directional reflectance
+                    Float uc = RadicalInverse(0, i + 1);
+                    Point2f u(RadicalInverse(1, i + 1), RadicalInverse(2, i + 1));
 
-                //     // Estimate one term of $\rho_\roman{hd}$
-                //     pstd::optional<BSDFSample> bs = bsdf.Sample_f(me.wo, uc, u);
-                //     if (bs)
-                //         rho += bs->f * AbsDot(bs->wi, ns) / bs->pdf;
-                // }
-                // SampledSpectrum albedo = rho / nRhoSamples;
+                    // Estimate one term of $\rho_\roman{hd}$
+                    pstd::optional<BSDFSample> bs = bsdf.Sample_f(me.wo, uc, u);
+                    if (bs)
+                        rho += bs->f * AbsDot(bs->wi, ns) / bs->pdf;
+                }
+                SampledSpectrum albedo = rho / nRhoSamples;
 
                 
-                SampledSpectrum albedo(0.f);
+                SampledSpectrum diffuse_albedo(0.f);
                 if(bsdf.IsDiffuse() && bsdf.HasReflection()) {
-                    albedo = bxdf.getDiffuseReflectance();
+                    diffuse_albedo = bxdf.getDiffuseReflectance();
                 }
               
-
+                Point2f roughness = bxdf.getRoughness();
 
                 pixelSampleState.visibleSurface[me.pixelIndex] =
-                    VisibleSurface(intr, camera.GetCameraTransform(), albedo, lambda);
+                    VisibleSurface(intr, camera.GetCameraTransform(), albedo, diffuse_albedo, roughness, lambda);
             }
 
             Vector3f wo = me.wo;

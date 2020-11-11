@@ -27,6 +27,8 @@ namespace pbrt {
 
 std::pair<cudaEvent_t, cudaEvent_t> GetProfilerEvents(const char *description);
 
+void ResetProfilerEvents();
+
 template <typename F>
 inline int GetBlockSize(const char *description, F kernel) {
     // Note: this isn't re-entrant, but that's fine for our purposes...

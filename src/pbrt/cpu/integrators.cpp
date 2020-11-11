@@ -755,9 +755,10 @@ SampledSpectrum PathIntegrator::Li(RayDifferential ray, SampledWavelengths &lamb
                     rho += bs->f * AbsDot(bs->wi, si->intr.shading.n) / bs->pdf;
             }
             SampledSpectrum albedo = rho / nRhoSamples;
-
+            SampledSpectrum diffuse_albedo(0.);
+            Point2f roughness(0.,0.); 
             *visibleSurf =
-                VisibleSurface(si->intr, camera.GetCameraTransform(), albedo, lambda);
+                VisibleSurface(si->intr, camera.GetCameraTransform(), albedo, diffuse_albedo, roughness, lambda);
         }
 
         // End path if maximum depth reached

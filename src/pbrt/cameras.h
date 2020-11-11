@@ -142,6 +142,9 @@ class CameraBase {
     const CameraTransform &GetCameraTransform() const { return cameraTransform; }
 
     PBRT_CPU_GPU
+    CameraTransform &GetCameraTransform()  { return cameraTransform; }
+
+    PBRT_CPU_GPU
     Float SampleTime(Float u) const { return Lerp(u, shutterOpen, shutterClose); }
 
     PBRT_CPU_GPU
@@ -563,6 +566,11 @@ inline Float CameraHandle::SampleTime(Float u) const {
 }
 
 inline const CameraTransform &CameraHandle::GetCameraTransform() const {
+    auto gtc = [&](auto ptr) -> auto && { return ptr->GetCameraTransform(); };
+    return DispatchCRef(gtc);
+}
+
+inline CameraTransform& CameraHandle::GetCameraTransform() {
     auto gtc = [&](auto ptr) -> auto && { return ptr->GetCameraTransform(); };
     return DispatchCRef(gtc);
 }

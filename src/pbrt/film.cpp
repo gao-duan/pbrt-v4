@@ -59,6 +59,16 @@ std::string FilmHandle::GetFilename() const {
     return DispatchCPU(get);
 }
 
+void FilmHandle::SetFilename(const std::string& name) {
+    auto get = [&](auto ptr) { ptr->SetFileName(name); };
+    return DispatchCPU(get);
+}
+
+void FilmHandle::Reset() {
+    auto get = [&](auto ptr) { ptr->Reset(); };
+    return Dispatch(get);
+}
+
 // FilmBaseParameters Method Definitions
 FilmBaseParameters::FilmBaseParameters(const ParameterDictionary &parameters,
                                        FilterHandle filter, const PixelSensor *sensor,
@@ -172,8 +182,10 @@ Bounds2f FilmBase::SampleBounds() const {
 VisibleSurface::VisibleSurface(const SurfaceInteraction &si,
                                const CameraTransform &cameraTransform,
                                const SampledSpectrum &albedo,
+                               const SampledSpectrum &diffuse_albedo,  
+                                const Point2f& roughness,
                                const SampledWavelengths &lambda)
-    : albedo(albedo) {
+    : albedo(albedo), diffuse_albedo(diffuse_albedo), roughness(roughness) {
     set = true;
     // Initialize geometric _VisibleSurface_ members
     Transform cameraFromRender = cameraTransform.CameraFromRender(si.time);
@@ -847,6 +859,16 @@ void GBufferMitsubaFilm::AddSample(const Point2i &pFilm, SampledSpectrum L,
         RGB albedoRGB = albedo.ToRGB(lambda, *colorSpace);
         for (int c = 0; c < 3; ++c)
             p.albedoSum[c] += weight * albedoRGB[c];
+
+        
+
+        SampledSpectrum diffuse_albedo =
+            visibleSurface->diffuse_albedo * colorSpace->illuminant.Sample(lambda);
+        RGB diffuseAlbedoRGB = diffuse_albedo.ToRGB(lambda, *colorSpace);
+        for (int c = 0; c < 3; ++c)
+            p.diffuseAlbedoSum[c] += weight * diffuseAlbedoRGB[c];
+
+        p.roughnessSum += weight * visibleSurface->roughness;
     }
 
     for (int c = 0; c < 3; ++c)
@@ -922,6 +944,11 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
             channels.push_back("Albedo.G");
             channels.push_back("Albedo.B");
         }
+         else if(field == "Diffuse") {
+            channels.push_back("Diffuse.R");
+            channels.push_back("Diffuse.G");
+            channels.push_back("Diffuse.B");
+        }
         else if(field == "Position") {
             channels.push_back("Position.R");
             channels.push_back("Position.G");
@@ -956,6 +983,11 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
             channels.push_back("UV.G");
             channels.push_back("UV.B");
         }
+         else if(field == "Roughness") {
+            channels.push_back("Roughness.R");
+            channels.push_back("Roughness.G");
+            channels.push_back("Roughness.B");
+        }
         else {
             std::cout<<"Unknown field [" << field << ", ignored" <<std::endl;
         }
@@ -970,22 +1002,28 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
     ImageChannelDesc nsDesc = image.GetChannelDesc({"shNormal.R", "shNormal.G", "shNormal.B"});
     ImageChannelDesc albedoRgbDesc =
         image.GetChannelDesc({"Albedo.R", "Albedo.G", "Albedo.B"});
+    ImageChannelDesc diffuseAlbedoRgbDesc =
+        image.GetChannelDesc({"Diffuse.R", "Diffuse.G", "Diffuse.B"});
     ImageChannelDesc varianceDesc =
         image.GetChannelDesc({"Variance.R", "Variance.G", "Variance.B"});
     ImageChannelDesc relVarianceDesc = image.GetChannelDesc(
         {"RelativeVariance.R", "RelativeVariance.G", "RelativeVariance.B"});
     ImageChannelDesc uvDesc = image.GetChannelDesc({"UV.R", "UV.G", "UV.B"});
+    ImageChannelDesc roughnessDesc = image.GetChannelDesc({"Roughness.R", "Roughness.G", "Roughness.B"});
 
     ParallelFor2D(pixelBounds, [&](Point2i p) {
         Pixel &pixel = pixels[p];
         RGB rgb(pixel.rgbSum[0], pixel.rgbSum[1], pixel.rgbSum[2]);
         RGB albedoRgb(pixel.albedoSum[0], pixel.albedoSum[1], pixel.albedoSum[2]);
+        RGB diffuseAlbedoRgb(pixel.diffuseAlbedoSum[0], pixel.diffuseAlbedoSum[1], pixel.diffuseAlbedoSum[2] );
 
         // Normalize pixel with weight sum
         Float weightSum = pixel.weightSum;
         Point3f pt = pixel.pSum;
         Float dzdx = pixel.dzdxSum, dzdy = pixel.dzdySum;
         Point2f uv = pixel.uvSum;
+        Point2f roughness = pixel.roughnessSum;
+
         if (weightSum != 0) {
             rgb /= weightSum;
             albedoRgb /= weightSum;
@@ -993,6 +1031,8 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
             dzdx /= weightSum;
             dzdy /= weightSum;
             uv /= weightSum;
+            diffuseAlbedoRgb /= weightSum;
+            roughness /= weightSum;
         }
 
         // Add splat value at pixel
@@ -1012,6 +1052,10 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
             else if(field == "Albedo") {
                 image.SetChannels(pOffset, albedoRgbDesc,
                     {albedoRgb[0], albedoRgb[1], albedoRgb[2]});
+            }
+             else if(field == "Diffuse") {
+                image.SetChannels(pOffset, diffuseAlbedoRgbDesc,
+                    {diffuseAlbedoRgb[0], diffuseAlbedoRgb[1], diffuseAlbedoRgb[2]});
             }
             else if(field == "Position") {
                 image.SetChannels(pOffset, pDesc, {-pt.x, pt.y, pt.z});   // !!! left hand to right hand              
@@ -1043,6 +1087,12 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
             }
             else if (field == "UV") {
                  image.SetChannels(pOffset, uvDesc, {uv.x, uv.y, 0.0});
+            }
+            else if (field == "Roughness") {
+                if(1.0 - roughness.x < 0 || 1.0 - roughness.y < 0) {
+                     std::cout<<"Negtive value in roughness" <<std::endl;
+                }
+                 image.SetChannels(pOffset, roughnessDesc, {1.0f - roughness.x, 1.0f - roughness.y, 0.0}); 
             }
             else {
                 std::cout<<"Unknown field [" << field << ", ignored" <<std::endl;
@@ -1076,9 +1126,11 @@ GBufferMitsubaFilm *GBufferMitsubaFilm::Create(const ParameterDictionary &parame
     if(fields.empty()) {
         fields.push_back("Image");
         fields.push_back("Albedo");
+        fields.push_back("Diffuse");
         fields.push_back("shNormal");
         fields.push_back("Position");
         fields.push_back("UV");
+        fields.push_back("Roughness");
     }
 
     PixelSensor *sensor =
@@ -1093,16 +1145,6 @@ GBufferMitsubaFilm *GBufferMitsubaFilm::Create(const ParameterDictionary &parame
     return alloc.new_object<GBufferMitsubaFilm>(filmBaseParameters, colorSpace, fields,
                                          maxComponentValue, writeFP16, alloc);
 }
-
-
-
-
-
-
-
-
-
-
 
 
 

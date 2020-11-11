@@ -52,6 +52,8 @@ soa VisibleSurface {
     Float time;
     Float dzdx, dzdy;
     SampledSpectrum albedo;
+    SampledSpectrum diffuse_albedo;
+    Point2f roughness;
 };
 
 soa MediumInterface {

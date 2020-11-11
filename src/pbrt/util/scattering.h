@@ -221,6 +221,11 @@ class TrowbridgeReitzDistribution {
             alpha_y = Clamp(2 * alpha_y, 0.1f, 0.3f);
     }
 
+    PBRT_CPU_GPU
+    Point2f GetRoughness() const {
+        return Point2f(alpha_x * alpha_x, alpha_y * alpha_y);
+    }
+    
   private:
     // TrowbridgeReitzDistribution Private Members
     Float alpha_x, alpha_y;

@@ -373,4 +373,10 @@ void CPURender(ParsedScene &parsedScene) {
     FreeBufferCaches();
 }
 
+
+
+void CPURenderMultipleViews(ParsedScene &scene, const std::vector<CameraTransform>& camera_lists, const std::vector<std::string>& outfiles) {
+    
+}
+
 }  // namespace pbrt

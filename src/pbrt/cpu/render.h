@@ -6,12 +6,15 @@
 #define PBRT_CPU_RENDER_H
 
 #include <pbrt/pbrt.h>
+#include <vector>
+#include <string>
 
 namespace pbrt {
 
 class ParsedScene;
 
 void CPURender(ParsedScene &scene);
+void CPURenderMultipleViews(ParsedScene &scene, const std::vector<CameraTransform>& camera_lists, const std::vector<std::string>& outfiles);
 
 }  // namespace pbrt
 

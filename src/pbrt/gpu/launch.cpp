@@ -87,6 +87,10 @@ std::pair<cudaEvent_t, cudaEvent_t> GetProfilerEvents(const char *description) {
     return {pe.start, pe.stop};
 }
 
+void ResetProfilerEvents() {
+    kernelStats.clear();
+}
+
 void ReportKernelStats() {
     CUDA_CHECK(cudaDeviceSynchronize());
 

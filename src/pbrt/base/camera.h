@@ -59,6 +59,8 @@ class CameraHandle : public TaggedPointer<PerspectiveCamera, OrthographicCamera,
 
     PBRT_CPU_GPU inline const CameraTransform &GetCameraTransform() const;
 
+    PBRT_CPU_GPU inline CameraTransform &GetCameraTransform();
+
     PBRT_CPU_GPU
     void ApproximatedPdxy(SurfaceInteraction &si, int samplesPerPixel) const;
 

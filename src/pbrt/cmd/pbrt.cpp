@@ -32,14 +32,57 @@ using namespace pbrt;
 #ifdef PBRT_BUILD_GPU_RENDERER
 namespace pbrt {
 extern void GPURender(ParsedScene &);
+extern void GPURenderMultipleViews(ParsedScene &scene, const std::vector<CameraTransform>& camera_lists, const std::vector<std::string>& outfiles);
 }
 #else
 namespace pbrt {
 void GPURender(ParsedScene &) {
     ErrorExit("GPU rendering is not supported on this system.");
 }
+void GPURenderMultipleViews(ParsedScene &scene, const std::vector<CameraTransform>& camera_lists,  const std::vector<std::string>& outfiles) {
+    ErrorExit("GPU rendering is not supported on this system.");
+}
+
 }  // namespace pbrt
 #endif
+
+
+static void ParseCameras(const std::string& camera_file, std::vector<CameraTransform>& camera_lists, std::vector<std::string>& outfiles) {
+    camera_lists.clear();
+
+    std::ifstream in(camera_file);
+    if(!in) {
+        std::cerr<<"Cannot open " <<camera_file<<std::endl;
+    }
+
+    std::string name;
+    float t;
+    std::vector<float> values;
+    while(in>>name) {
+        outfiles.push_back(name);
+        for(int i =0;i<16;++i) {
+            in>>t;
+            values.push_back(t);
+        }
+    }
+
+    assert(values.size() % 16 == 0);
+    
+  
+    for(int i = 0;i<values.size();i+=16) {
+        float m[4][4];
+        int idx = 0;
+        for(int j =0;j<4;++j){
+            for(int k=0;k<4;++k) {
+                m[j][k] = values[idx + i];
+                ++idx;
+            }
+        }
+        AnimatedTransform trans(m);
+        camera_lists.push_back(CameraTransform(trans));
+    }
+    
+}
 
 static void usage(const std::string &msg = {}) {
     if (!msg.empty())
@@ -81,6 +124,7 @@ Rendering options:
   --seed <n>                   Set random number generator seed. Default: 0.
   --spp <n>                    Override number of pixel samples specified in scene
                                description file.
+  --camerafile <filename>      Given a file of multiple camera transforms.
 
 Logging options:
   --log-level <level>          Log messages at or above this level, where <level>
@@ -170,6 +214,7 @@ int main(int argc, char *argv[]) {
             ParseArg(&argv, "mse-reference-out", &options.mseReferenceOutput, onError) ||
             ParseArg(&argv, "nthreads", &options.nThreads, onError) ||
             ParseArg(&argv, "outfile", &options.imageFile, onError) ||
+            ParseArg(&argv, "camerafile", &options.cameraFile, onError) ||
             ParseArg(&argv, "pixelstats", &options.recordPixelStatistics, onError) ||
             ParseArg(&argv, "quick", &options.quickRender, onError) ||
             ParseArg(&argv, "quiet", &options.quiet, onError) ||
@@ -231,12 +276,25 @@ int main(int argc, char *argv[]) {
         // Parse provided scene description files
         ParsedScene scene;
         ParseFiles(&scene, filenames);
+        
 
         // Render the scene
-        if (options.useGPU)
-            GPURender(scene);
-        else
-            CPURender(scene);
+        if(options.cameraFile.empty()) {
+            if (options.useGPU)
+                GPURender(scene);
+            else
+                CPURender(scene);
+        }
+        else {
+            std::vector<CameraTransform> camera_lists;
+            std::vector<std::string> outfiles;
+            ParseCameras(options.cameraFile, camera_lists, outfiles);
+
+            if (options.useGPU)
+                GPURenderMultipleViews(scene, camera_lists, outfiles);
+            else
+                CPURenderMultipleViews(scene, camera_lists, outfiles);
+        }
 
         LOG_VERBOSE("Memory used after post-render cleanup: %s", GetCurrentRSS());
         // Clean up after rendering the scene

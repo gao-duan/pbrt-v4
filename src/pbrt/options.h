@@ -43,6 +43,7 @@ struct PBRTOptions : BasicPBRTOptions {
     pstd::optional<Bounds2f> cropWindow;
     pstd::optional<Bounds2i> pixelBounds;
 
+    std::string cameraFile;
     std::string ToString() const;
 };
 

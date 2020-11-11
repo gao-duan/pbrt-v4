@@ -47,6 +47,11 @@ class IdealDiffuseBxDF {
     }
 
     PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return Point2f(1.0, 1.0);
+    }
+
+    PBRT_CPU_GPU
     pstd::optional<BSDFSample> Sample_f(
         Vector3f wo, Float uc, Point2f u, TransportMode mode,
         BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const {
@@ -101,6 +106,11 @@ class DiffuseBxDF {
     PBRT_CPU_GPU
     SampledSpectrum getDiffuseReflectance() const {
         return R;
+    }
+
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return Point2f(1.0, 1.0);
     }
 
     PBRT_CPU_GPU
@@ -220,6 +230,11 @@ class DielectricInterfaceBxDF {
     SampledSpectrum getDiffuseReflectance() const {
         return SampledSpectrum(0.0f);
     }
+    
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return mfDistrib.GetRoughness();
+    }
 
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const;
@@ -271,6 +286,11 @@ class SpecularTransmissionBxDF {
     PBRT_CPU_GPU
     SampledSpectrum getDiffuseReflectance() const {
         return SampledSpectrum(0.0f);
+    }
+
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return Point2f(0.0, 0.0);
     }
 
     PBRT_CPU_GPU
@@ -357,6 +377,11 @@ class SpecularReflectionBxDF {
     SampledSpectrum getDiffuseReflectance() const {
         return SampledSpectrum(0.0f);
     }
+    
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return Point2f(0,0);
+    }
 
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const {
@@ -418,7 +443,12 @@ class ThinDielectricBxDF {
     SampledSpectrum getDiffuseReflectance() const {
         return SampledSpectrum(0.0f);
     }
-
+    
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return Point2f(0,0);
+    }
+    
     PBRT_CPU_GPU
     pstd::optional<BSDFSample> Sample_f(Vector3f wo, Float uc, Point2f u,
                                         TransportMode mode,
@@ -496,6 +526,11 @@ class ConductorBxDF {
     PBRT_CPU_GPU
     SampledSpectrum getDiffuseReflectance() const {
         return SampledSpectrum(0.0f);
+    }
+
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return mfDistrib.GetRoughness();
     }
 
     PBRT_CPU_GPU
@@ -621,6 +656,11 @@ class TopOrBottomBxDF {
     }
     
     PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return top->getRoughness();
+    }
+
+    PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const {
         return top ? top->f(wo, wi, mode) : bottom->f(wo, wi, mode);
     }
@@ -703,6 +743,12 @@ class LayeredBxDF {
     SampledSpectrum getDiffuseReflectance() const {
         return top.getDiffuseReflectance() + bottom.getDiffuseReflectance();
     }
+
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return top.getRoughness();
+    }
+
 
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const {
@@ -1137,6 +1183,12 @@ class CoatedDiffuseBxDF : public LayeredBxDF<DielectricInterfaceBxDF, IdealDiffu
         return (1.0f - FrDiffuseReflectance(eta)) * bottom.getDiffuseReflectance();
     }
 
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return top.getRoughness();
+    }
+
+
     friend class SOA<CoatedDiffuseBxDF>;
 };
 
@@ -1164,6 +1216,12 @@ class HairBxDF {
     SampledSpectrum getDiffuseReflectance() const {
         return SampledSpectrum(0.0f);
     }
+
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return Point2f(1,1);
+    }
+
 
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const;
@@ -1276,7 +1334,10 @@ class MeasuredBxDF {
     SampledSpectrum getDiffuseReflectance() const {
         return SampledSpectrum(0.0f);
     }
-
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return Point2f(1,1);
+    }
     PBRT_CPU_GPU
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const;
 
@@ -1327,7 +1388,10 @@ class NormalizedFresnelBxDF {
     SampledSpectrum getDiffuseReflectance() const {
         return SampledSpectrum(0.0f);
     }
-
+    PBRT_CPU_GPU
+    Point2f getRoughness() const {
+        return Point2f(1,1);
+    }
     PBRT_CPU_GPU
     BSDFSample Sample_f(const Vector3f &wo, Float uc, const Point2f &u,
                         TransportMode mode, BxDFReflTransFlags sampleFlags) const {

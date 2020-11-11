@@ -130,7 +130,8 @@ class VisibleSurface {
     // VisibleSurface Public Methods
     PBRT_CPU_GPU
     VisibleSurface(const SurfaceInteraction &si, const CameraTransform &cameraTransform,
-                   const SampledSpectrum &albedo, const SampledWavelengths &lambda);
+                   const SampledSpectrum &albedo, const SampledSpectrum &diffuse_albedo,  
+                   const Point2f& roughness, const SampledWavelengths &lambda);
 
     PBRT_CPU_GPU
     operator bool() const { return set; }
@@ -148,6 +149,8 @@ class VisibleSurface {
     Float time = 0;
     Float dzdx = 0, dzdy = 0;
     SampledSpectrum albedo;
+    SampledSpectrum diffuse_albedo;
+    Point2f roughness;
 };
 
 // FilmBaseParameters Definition
@@ -202,6 +205,7 @@ class FilmBase {
     PBRT_CPU_GPU
     const PixelSensor *GetPixelSensor() const { return sensor; }
     std::string GetFilename() const { return filename; }
+    void SetFileName(const std::string& name) { filename = name; }
 
     std::string BaseToString() const;
 
@@ -293,6 +297,15 @@ class RGBFilm : public FilmBase {
         return outputRGBFromSensorRGB * sensorRGB;
     }
 
+    PBRT_CPU_GPU
+    void Reset() {
+        for(auto i = pixels.begin(); i!=pixels.end();++i) {
+            i->rgbSum[0] = i->rgbSum[1] = i->rgbSum[2] = 0;
+            i->weightSum = 0.;
+            i->splatRGB[0] = i->splatRGB[1] = i->splatRGB[2] = 0.;
+        }
+    }
+
   private:
     // RGBFilm::Pixel Definition
     struct Pixel {
@@ -364,6 +377,22 @@ class GBufferFilm : public FilmBase {
 
     void WriteImage(ImageMetadata metadata, Float splatScale = 1);
     Image GetImage(ImageMetadata *metadata, Float splatScale = 1);
+
+    PBRT_CPU_GPU
+    void Reset() {
+        for(auto i = pixels.begin(); i!=pixels.end();++i) {
+            i->rgbSum[0] = i->rgbSum[1] = i->rgbSum[2] = 0;
+            i->weightSum = 0.;
+            i->splatRGB[0] = i->splatRGB[1] = i->splatRGB[2] = 0.;
+
+            i->pSum = Point3f();
+            i->dzdxSum = i->dzdySum = 0.;
+            i->nSum = i->nsSum = Normal3f();
+            i->albedoSum[0] = i->albedoSum[1] = i->albedoSum[2] = 0.;
+            i->varianceEstimator[0] = i->varianceEstimator[1] = i->varianceEstimator[2] =  VarianceEstimator<Float>();
+
+        }
+    }
 
     std::string ToString() const;
 
@@ -447,6 +476,25 @@ class GBufferMitsubaFilm : public FilmBase {
     void WriteImage(ImageMetadata metadata, Float splatScale = 1);
     Image GetImage(ImageMetadata *metadata, Float splatScale = 1);
 
+    PBRT_CPU_GPU
+    void Reset() {
+        for(auto i = pixels.begin(); i!=pixels.end();++i) {
+            i->rgbSum[0] = i->rgbSum[1] = i->rgbSum[2] = 0;
+            i->weightSum = 0.;
+            i->splatRGB[0] = i->splatRGB[1] = i->splatRGB[2] = 0.;
+
+            i->pSum = Point3f();
+            i->dzdxSum = i->dzdySum = 0.;
+            i->nSum = i->nsSum = Normal3f();
+            i->uvSum = Point2f();
+            i->roughnessSum = Point2f();
+            i->albedoSum[0] = i->albedoSum[1] = i->albedoSum[2] = 0.;
+            i->diffuseAlbedoSum[0] = i->diffuseAlbedoSum[1] =i->diffuseAlbedoSum[2] = 0.; 
+            i->varianceEstimator[0] = i->varianceEstimator[1] = i->varianceEstimator[2] =  VarianceEstimator<Float>();
+
+        }
+    }
+
     std::string ToString() const;
 
   private:
@@ -460,7 +508,9 @@ class GBufferMitsubaFilm : public FilmBase {
         Float dzdxSum = 0, dzdySum = 0;
         Normal3f nSum, nsSum;
         Point2f uvSum;
+        Point2f roughnessSum;
         double albedoSum[3] = {0., 0., 0.};
+        double diffuseAlbedoSum[3] = {0., 0., 0.};
         VarianceEstimator<Float> varianceEstimator[3];
     };
 
