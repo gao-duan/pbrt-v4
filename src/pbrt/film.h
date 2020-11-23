@@ -143,6 +143,7 @@ class VisibleSurface {
     // VisibleSurface Public Members
     bool set = false;
     Point3f p;
+    Point3f p_world;
     Normal3f n, ns;
     Normal3f _n, _ns;
     Point2f texcoords;
@@ -484,6 +485,7 @@ class GBufferMitsubaFilm : public FilmBase {
             i->splatRGB[0] = i->splatRGB[1] = i->splatRGB[2] = 0.;
 
             i->pSum = Point3f();
+            i->pWorldSum = Point3f();
             i->dzdxSum = i->dzdySum = 0.;
             i->nSum = i->nsSum = Normal3f();
             i->uvSum = Point2f();
@@ -505,6 +507,7 @@ class GBufferMitsubaFilm : public FilmBase {
         double weightSum = 0.;
         AtomicDouble splatRGB[3];
         Point3f pSum;
+        Point3f pWorldSum;
         Float dzdxSum = 0, dzdySum = 0;
         Normal3f nSum, nsSum;
         Point2f uvSum;

@@ -190,6 +190,10 @@ VisibleSurface::VisibleSurface(const SurfaceInteraction &si,
     // Initialize geometric _VisibleSurface_ members
     Transform cameraFromRender = cameraTransform.CameraFromRender(si.time);
     p = cameraFromRender(si.p());
+
+    Transform renderFromWorld = cameraTransform.RenderFromWorld();
+    p_world = renderFromWorld.ApplyInverse(si.p());
+
     Vector3f wo = cameraFromRender(si.wo);
     n = FaceForward(cameraFromRender(si.n), wo);
     ns = FaceForward(cameraFromRender(si.shading.n), wo);
@@ -700,9 +704,9 @@ Image GBufferFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
                  "Albedo.R",
                  "Albedo.G",
                  "Albedo.B",
-                 "Position.R", 
-                 "Position.G", 
-                 "Position.B",
+                 "RelPosition.R", 
+                 "RelPosition.G", 
+                 "RelPosition.B",
                  "dzdx",
                  "dzdy",
                  "Normal.R", 
@@ -719,7 +723,7 @@ Image GBufferFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
                  "RelativeVariance.B"});
 
     ImageChannelDesc rgbDesc = image.GetChannelDesc({"Image.R", "Image.G", "Image.B"});
-    ImageChannelDesc pDesc = image.GetChannelDesc({"Position.R", "Position.G", "Position.B"});
+    ImageChannelDesc pDesc = image.GetChannelDesc({"RelPosition.R", "RelPosition.G", "RelPosition.B"});
     ImageChannelDesc dzDesc = image.GetChannelDesc({"dzdx", "dzdy"});
     ImageChannelDesc nDesc = image.GetChannelDesc({"Normal.R", "Normal.G", "Normal.B"});
     ImageChannelDesc nsDesc = image.GetChannelDesc({"shNormal.R", "shNormal.G", "shNormal.B"});
@@ -845,6 +849,7 @@ void GBufferMitsubaFilm::AddSample(const Point2i &pFilm, SampledSpectrum L,
             p.varianceEstimator[c].Add(rgb[c]);
 
         p.pSum += weight * visibleSurface->p;
+        p.pWorldSum += weight * visibleSurface->p_world;
 
         p.nSum += weight * visibleSurface->_n;
         p.nsSum += weight * visibleSurface->_ns;
@@ -954,6 +959,11 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
             channels.push_back("Position.G");
             channels.push_back("Position.B");    
         }
+        else if (field == "RelPosition") {
+            channels.push_back("RelPosition.R");
+            channels.push_back("RelPosition.G");
+            channels.push_back("RelPosition.B");    
+        }
         else if(field == "shNormal") {
             channels.push_back("shNormal.R");
             channels.push_back("shNormal.G");
@@ -996,7 +1006,9 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
     Image image(format, Point2i(pixelBounds.Diagonal()), channels);
 
     ImageChannelDesc rgbDesc = image.GetChannelDesc({"Image.R", "Image.G", "Image.B"});
-    ImageChannelDesc pDesc = image.GetChannelDesc({"Position.R", "Position.G", "Position.B"});
+    ImageChannelDesc pDesc = image.GetChannelDesc({"RelPosition.R", "RelPosition.G", "RelPosition.B"});
+    ImageChannelDesc pWorldDesc = image.GetChannelDesc({"Position.R", "Position.G", "Position.B"});
+
     ImageChannelDesc dzDesc = image.GetChannelDesc({"dzdx", "dzdy"});
     ImageChannelDesc nDesc = image.GetChannelDesc({"Normal.R", "Normal.G", "Normal.B"});
     ImageChannelDesc nsDesc = image.GetChannelDesc({"shNormal.R", "shNormal.G", "shNormal.B"});
@@ -1020,6 +1032,7 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
         // Normalize pixel with weight sum
         Float weightSum = pixel.weightSum;
         Point3f pt = pixel.pSum;
+        Point3f pt_world = pixel.pWorldSum;
         Float dzdx = pixel.dzdxSum, dzdy = pixel.dzdySum;
         Point2f uv = pixel.uvSum;
         Point2f roughness = pixel.roughnessSum;
@@ -1028,6 +1041,7 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
             rgb /= weightSum;
             albedoRgb /= weightSum;
             pt /= weightSum;
+            pt_world /= weightSum;
             dzdx /= weightSum;
             dzdy /= weightSum;
             uv /= weightSum;
@@ -1057,8 +1071,11 @@ Image GBufferMitsubaFilm::GetImage(ImageMetadata *metadata, Float splatScale) {
                 image.SetChannels(pOffset, diffuseAlbedoRgbDesc,
                     {diffuseAlbedoRgb[0], diffuseAlbedoRgb[1], diffuseAlbedoRgb[2]});
             }
-            else if(field == "Position") {
+            else if(field == "RelPosition") {
                 image.SetChannels(pOffset, pDesc, {-pt.x, pt.y, pt.z});   // !!! left hand to right hand              
+            }
+            else if(field == "Position") {
+                image.SetChannels(pOffset, pWorldDesc, {pt_world.x, pt_world.y, pt_world.z});            
             }
             else if(field == "shNormal") {
                 Normal3f ns =
@@ -1128,6 +1145,7 @@ GBufferMitsubaFilm *GBufferMitsubaFilm::Create(const ParameterDictionary &parame
         fields.push_back("Albedo");
         fields.push_back("Diffuse");
         fields.push_back("shNormal");
+        fields.push_back("RelPosition");
         fields.push_back("Position");
         fields.push_back("UV");
         fields.push_back("Roughness");

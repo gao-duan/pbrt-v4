@@ -46,6 +46,7 @@ soa Frame {
 soa VisibleSurface {
     bool set;
     Point3f p;
+    Point3f p_world;
     Normal3f n, ns;
     Normal3f _n, _ns;
     Point2f texcoords;
