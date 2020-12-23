@@ -55,6 +55,31 @@ CameraTransform::CameraTransform(const AnimatedTransform &worldFromCamera) {
                                          worldFromCamera.endTime);
 }
 
+
+CameraTransform::CameraTransform(const AnimatedTransform &worldFromCamera, const std::string& space) {
+    if(space == "camera") {
+         // Compute _worldFromRender_ for camera-space rendering
+        Float tMid = (worldFromCamera.startTime + worldFromCamera.endTime) / 2;
+        worldFromRender = worldFromCamera.Interpolate(tMid);
+       
+    }
+    else if(space == "camera_world") {
+         Float tMid = (worldFromCamera.startTime + worldFromCamera.endTime) / 2;
+        Point3f pCamera = worldFromCamera(Point3f(0, 0, 0), tMid);
+        worldFromRender = Translate(Vector3f(pCamera));
+    }
+    else if (space == "world") {
+        worldFromRender = Transform();
+    }
+
+    Transform renderFromWorld = Inverse(worldFromRender);
+    Transform rfc[2] = {renderFromWorld * worldFromCamera.startTransform,
+                        renderFromWorld * worldFromCamera.endTransform};
+    renderFromCamera = AnimatedTransform(rfc[0], worldFromCamera.startTime, rfc[1],
+                                         worldFromCamera.endTime);
+}
+
+
 std::string CameraTransform::ToString() const {
     return StringPrintf("[ CameraTransform renderFromCamera: %s worldFromRender: %s ]",
                         renderFromCamera, worldFromRender);

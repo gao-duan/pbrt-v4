@@ -29,6 +29,9 @@ class CameraTransform {
     CameraTransform() = default;
     explicit CameraTransform(const AnimatedTransform &worldFromCamera);
 
+    CameraTransform(const AnimatedTransform &worldFromCamera, const std::string& space);
+
+
     PBRT_CPU_GPU
     Point3f RenderFromCamera(const Point3f &p, Float time) const {
         return renderFromCamera(p, time);

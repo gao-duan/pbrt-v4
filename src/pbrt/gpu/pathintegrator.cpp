@@ -275,6 +275,7 @@ void GPUPathIntegrator::UpdateCamera(const CameraTransform& camera_transform) {
 
     ResetProfilerEvents();
 
+
     // TODO, need update portal envmap after updating camera_transform
 
 }
@@ -652,13 +653,12 @@ void GPURenderMultipleViews(ParsedScene &scene, const std::vector<CameraTransfor
     // Render!
    
     for(size_t idx_camera = 0; idx_camera!=camera_lists.size();++idx_camera) {
-         Timer timer;
+        Timer timer;
         ImageMetadata metadata;
 
         integrator->UpdateCamera(camera_lists[idx_camera]);
         integrator->film.SetFilename(outfiles[idx_camera]);
 
-        std::cout<<integrator->film.GetFilename()<<std::endl;
 
         integrator->Render(&metadata);
 
@@ -702,6 +702,8 @@ void GPURender(ParsedScene &scene) {
         gpuMemoryAllocator.new_object<GPUPathIntegrator>(gpuMemoryAllocator, scene);
 #endif
 
+
+
     int deviceIndex;
     CUDA_CHECK(cudaGetDevice(&deviceIndex));
     int hasConcurrentManagedAccess;
@@ -739,6 +741,7 @@ void GPURender(ParsedScene &scene) {
     // Render!
     Timer timer;
     ImageMetadata metadata;
+
     integrator->Render(&metadata);
 
     LOG_VERBOSE("Total rendering time: %.3f s", timer.ElapsedSeconds());

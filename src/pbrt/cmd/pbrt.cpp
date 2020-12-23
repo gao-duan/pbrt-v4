@@ -79,7 +79,7 @@ static void ParseCameras(const std::string& camera_file, std::vector<CameraTrans
             }
         }
         AnimatedTransform trans(m);
-        camera_lists.push_back(CameraTransform(trans));
+        camera_lists.push_back(CameraTransform(trans, "camera_world"));
     }
     
 }
