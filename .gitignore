@@ -6,4 +6,5 @@ src/build
 .ipynb_checkpoints/
 build/
 build_debug/
+build2/
 .vscode/
